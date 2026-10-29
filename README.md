@@ -17,8 +17,16 @@ Personal skills for one way of working: plan in the main session, build in herdr
 
 ## Install
 
-Each skill folder is linked into each tool's skill folder (a Windows junction). Example for Claude Code:
+Clone to `~/dev/ayman-skills`, then link every skill into Claude Code, Codex and Copilot CLI:
 
 ```powershell
-New-Item -ItemType Junction -Path "$HOME\.claude\skills\define-work" -Target "$HOME\dev\ayman-skills\skills\define-work"
+.\install.ps1      # Windows
 ```
+
+```bash
+./install.sh       # macOS
+```
+
+Run it again after you add a skill. It skips links that exist.
+
+Also needed on each machine: the SuperMatt plugin, herdr, and the Linear MCP. In each project repo, run `/supermatt:setup-supermatt-skills` once.
