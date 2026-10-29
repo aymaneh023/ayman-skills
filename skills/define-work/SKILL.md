@@ -16,8 +16,8 @@ This runs in the session that calls it. It makes no worktree and writes no code.
 
 ## Before you start
 
-- The repo must be set up for the Matt Pocock skills (tracker = Linear, triage label names). If it is not, tell the user to run `/setup-matt-pocock-skills` first.
-- The stages below use `grill-with-docs`, `to-spec`, `to-tickets` and `triage`. Some of these only start when a user types them. When you cannot call one, find its installed `SKILL.md` and follow it yourself.
+- The repo must be set up for the SuperMatt skills: an "Agent skills" block in `CLAUDE.md` or `AGENTS.md` and files in `docs/agents/` (tracker = Linear, triage label names). If it is not, tell the user to run `/supermatt:setup-supermatt-skills` first.
+- The stages below use the SuperMatt `grill-with-docs`, `to-spec`, `to-tickets` and `triage`. They only start when a user types them. So read each one's installed `SKILL.md` and follow it yourself.
 - Tool differences (question tool, model names) are in [references/tools.md](references/tools.md).
 
 ## The stages
