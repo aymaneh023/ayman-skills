@@ -1,6 +1,6 @@
 # Ticket brief
 
-The brief is the comment `triage` posts on a `ready-for-agent` ticket. Write it as Matt's `triage` AGENT-BRIEF says, and add the four parts below. The agent that builds the ticket runs alone in a worktree. If it would have to ask something, the brief is not done.
+The brief is the comment `triage` posts on a `ready-for-agent` ticket. Write it as Matt's `triage` AGENT-BRIEF says, and add the parts below. The agent that builds the ticket runs alone in a worktree. If it would have to ask something, the brief is not done.
 
 ## Extra parts
 
@@ -8,7 +8,9 @@ The brief is the comment `triage` posts on a `ready-for-agent` ticket. Write it 
 
 > - `classify_products(company)` returns groups for a retailer. Catches wrong grouping.
 
-**Done check.** A command or check the agent can run itself, that passes only when the work is done. No paid calls, no deploys.
+**Scenarios.** The scenarios from the spec that this ticket covers (its `Covers:` line), copied word for word with their IDs. They are the goal: the work is done when each one holds. Write the tests for them at the seams below, with the scenario ID in the test name (`test_as_2_products_grouped_by_category`), so the PR can show which test proves which scenario.
+
+**Done check.** A command or check the agent can run itself, that passes only when the work is done: the tests for the covered scenarios pass. No paid calls, no deploys.
 
 > - `uv run pytest tests/test_products.py` passes.
 > - `uv run ruff check src/products` is clean.
@@ -32,6 +34,13 @@ If the real proof needs a paid run (an eval, a Perplexity call), write that unde
 
 ## Goal
 ...as triage writes it...
+
+## Scenarios
+Covers: AS-2
+  Scenario: AS-2 A retailer's products are grouped by category
+    Given a retailer with products in three categories
+    When its products are classified
+    Then each product is in the group of its category
 
 ## Test seams
 - `classify_products(company)` returns groups for a retailer.
