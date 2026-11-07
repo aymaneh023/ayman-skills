@@ -1,15 +1,26 @@
 ---
 name: spin-up-worktree
-description: Make (or reopen) a git worktree with a herdr workspace and pane, and start a fresh Claude Code session in it with a starting prompt from the caller. The session starts in the trusted ~/dev folder, so it keeps the approved permissions, then moves into the worktree. Checks that the prompt really landed. Use whenever something needs its own branch and worktree with an agent in it: factory-create, or a direct "spin up an agent on branch X" or "spin up <ticket>". Not tied to Linear. Herdr commands are in REFERENCE.md.
+description: Make (or reopen) a git worktree, open it as a space in the Herdr app with a fresh Claude Code session, and give that session a starting prompt from the caller. The session starts in the repo's own trusted checkout, so it keeps the approved permissions, then moves into the worktree. Checks that the prompt really landed. Use whenever something needs its own branch and worktree with an agent in it: factory-create, or a direct "spin up an agent on branch X" or "spin up <ticket>". Not tied to Linear. The hc and herdr-app commands are in REFERENCE.md.
 ---
 
 # Spin up a worktree
 
-Make a worktree, put it in a herdr pane, install dependencies, start Claude Code there and give it a prompt. This skill does not care *why*. The caller (`factory-create`, or the user) gives the starting prompt.
+Make a worktree, install dependencies, open a space for it in the Herdr app with Claude Code in it, and give that session a prompt. This skill does not care *why*. The caller (`factory-create`, or the user) gives the starting prompt.
 
 ```
 /spin-up-worktree <branch> [prompt]
 ```
+
+## Two tools, one app
+
+The Herdr app (macOS) has two command-line tools. Use only these two:
+
+| Tool | Job here |
+|---|---|
+| `herdr-app` (`~/.local/bin/herdr-app`) | Changes what the user sees: makes the space and tab, puts the focus back. |
+| `hc` (`~/.local/bin/hc`) | Talks to the terminals: waits for the session, reads its screen. |
+
+Never use the old `herdr` command (`/opt/homebrew/bin/herdr`). It talks to an old background server that the app does not show, so a session started with it is invisible to the user.
 
 ## Run it in the background
 
@@ -17,22 +28,22 @@ When the user runs this skill directly, do not do the steps in this session. Han
 
 - Agent tool, `subagent_type: general-purpose`, `model: sonnet`, `description: spin up <ID or branch>`.
 - Prompt: "Read and follow `~/.claude/skills/spin-up-worktree/SKILL.md` (`~` is the home folder), from *Ticket* on, with these inputs: <inputs>. The current repo is `<repo path>`. You cannot ask the user anything. Where the skill says to ask, stop and report the question instead."
-- Tell the user in one line: "Spinning up `<ID>` in the background. I'll tell you when the pane is up."
+- Tell the user in one line: "Spinning up `<ID>` in the background. I'll tell you when the space is up."
 - When it finishes, relay its result: the outputs, or exactly what stopped it. If it stopped on a question, ask the user, then start it again with the answer as an input.
 
 When `factory-create` calls this skill, do the steps in place. That session has nothing else to do.
 
 ## Before you start
 
-- You must be in a herdr pane: `test "${HERDR_ENV:-}" = 1`. If not, say so and stop.
-- Run git from inside the target repo (a folder under `~/dev`). Not clear which repo: ask.
-- Repo names have spaces (`Company profile agents`). Quote every path.
-- The herdr binary is the authority. When unsure, run `herdr <group> <command> --help`. See [REFERENCE.md](REFERENCE.md).
+- The Herdr app must be running: `herdr-app status` prints JSON with a `space`. It fails: say "the Herdr app is not open" and stop. Do not open it yourself (bare `herdr-app` opens the window).
+- Run git from inside the target repo. Not clear which repo: ask.
+- Paths can have spaces (`Company profile agents`). Quote every path.
+- When unsure about a command, run `hc <command> --help`, `herdr-app commands`, or `hc --skill` / `herdr-app --skill`. See [REFERENCE.md](REFERENCE.md).
 
 ## Inputs
 
 - `branch`: lowercase kebab-case, no slashes. Required.
-- `label`: the workspace title, `<LINEAR-ID> <Short Title>`, e.g. `CPE-1619 Bulk Company Export`. Not given: take the Linear id from the branch or request, fetch the issue (`mcp__linear__get_issue`), and shorten its title to 2–3 words. No ticket: a 2–3 word summary of the task.
+- `label`: the space name, `<LINEAR-ID> <Short Title>`, e.g. `CPE-1619 Bulk Company Export`. Not given: take the Linear id from the branch or request, fetch the issue (`mcp__linear__get_issue`), and shorten its title to 2–3 words. No ticket: a 2–3 word summary of the task.
 - `base_ref`: the branch to start from, e.g. `main`. Only needed when the branch does not exist yet.
 - `starting_prompt`: the exact text for the new session. The caller writes it.
 - `install_deps`: default yes.
@@ -55,124 +66,112 @@ When the user spins up a Linear ticket directly (`/spin-up-worktree VAS-53` or a
 
 ## Output
 
-Return `workspace_id`, `root_pane_id`, `agent_name`, `worktree_path`, `branch`, `model`, and "new" or "reopened". The caller tells the user. You only talk to the user about problems.
+Return `space_id`, `tab_id`, `terminal` (the hc address, e.g. `t5`), `worktree_path`, `branch`, `model`, and "new" or "reopened". The caller tells the user. You only talk to the user about problems.
 
 ## Rules
 
-1. **Never take the user's focus.** Use `--no-focus` on every `worktree create`, `worktree open` and `pane split`. The only `focus` call is the restore in step 7.
-2. **Start Claude Code in `~/dev`, never in the worktree.** Claude Code ties permissions to the folder it starts in. A new worktree is not trusted yet, so starting there asks for trust again. `dev` is trusted.
-3. **A prompt response is not proof.** `agent prompt` types keys into the pane. Success means the keys were sent, not that the agent read them. A timeout does not mean they were lost. Always do the check in step 6.
-4. **Target by pane id.** Once you have a `pane_id`, use it for every command. Never target by branch or label.
-5. **Ask, don't guess.** Never reuse, rename or recreate a branch or worktree without asking when it is not clear.
+1. **Start Claude Code in the repo's main checkout, never in the worktree.** Claude Code ties trust and permissions to the folder it starts in. A new worktree is not trusted yet, so starting there shows a trust dialog. The main checkout is trusted, because the user already works there.
+2. **A launch reply is not proof.** `herdr-app do space.new` says the terminal was made, not that Claude Code read the task. Always do the check in step 6.
+3. **Target by address.** Once you have the terminal address (`t5`), use it for every `hc` command. Never target by name or label.
+4. **Ask, don't guess.** Never reuse, rename or recreate a branch, worktree or space without asking when it is not clear.
+5. **Never answer a dialog yourself** (trust, permission, login). Read the screen and tell the user.
 
 ## Steps
 
 ### 0. Note the user's focus
 
 ```bash
-herdr workspace list
+herdr-app status
 ```
-Note the workspace with `"focused": true` as `<original_workspace_id>`.
+Note `space` as `<original_space_id>`.
 
-### 1. Is there a live pane for this branch?
+### 1. Is there a live session for this branch?
 
 ```bash
-herdr worktree list
+herdr-app ls
+hc ls
 ```
-- One → reuse it. Run `herdr workspace rename <workspace_id> "<label>"` and go to step 4.
+A space named `<label>` with a live `claude-code` terminal:
+- One → it is already running. Ask before you send it anything. To give it the prompt, go to step 6 with that terminal's address.
 - More than one → ask which one.
 - None → step 2.
 
 ### 2. Does the branch or worktree exist?
 
 ```bash
+repo_root=$(git rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||')   # the main checkout, also from inside a worktree
+worktree_path="${repo_root}.worktrees/<branch>"
 git show-ref --verify --quiet "refs/heads/<branch>"
 git worktree list --porcelain
 ```
 - No branch → create (step 3).
 - Branch, but no worktree folder → ask: "Use the existing branch `<branch>`" (recommended), "Make a new branch", or custom.
-- Branch and folder, no pane → reopen (step 3).
+- Branch and folder → reopen: skip step 3.
 
-### 3. Create or reopen
+### 3. Create the worktree
 
 ```bash
-repo_root=$(git rev-parse --show-toplevel)
-worktree_path="${repo_root}.worktrees/<branch>"
+git -C "$repo_root" fetch origin "<base_ref>" --quiet
+git -C "$repo_root" worktree add -b "<branch>" "$worktree_path" "<base_ref>"
 ```
-
-Create:
-```bash
-herdr worktree create --cwd "$repo_root" --branch "<branch>" --base "<base_ref>" --path "$worktree_path" --label "<label>" --no-focus
-```
-
-Reopen:
-```bash
-herdr worktree open --cwd "$repo_root" --path "$worktree_path" --label "<label>" --no-focus
-herdr workspace rename <workspace_id> "<label>"
-```
-
-Read `workspace_id` and `root_pane.pane_id` from the JSON. Do not predict them.
-
-A Git trust error: do not add `--trust-repository` yourself. Ask the user to confirm the repo first.
+Existing branch without a folder: `git -C "$repo_root" worktree add "$worktree_path" "<branch>"`.
 
 ### 4. Install dependencies
 
-Pick the command from the worktree root:
+Run it in the worktree, from this session. Look for lockfiles at the root first:
 
-| File | Command | Wait for |
-|---|---|---|
-| `uv.lock` or `pyproject.toml` | `uv sync` | `--regex "(Installed\|Audited\|Resolved) \d+ package"` |
-| `pnpm-lock.yaml` | `pnpm install` | `--match "Done in"` |
-| `package-lock.json` | `npm install` | `--regex "(added\|up to date)"` |
-| none | skip | |
+| File | Command |
+|---|---|
+| `uv.lock` or `pyproject.toml` | `uv sync` |
+| `pnpm-lock.yaml` | `pnpm install` |
+| `package-lock.json` | `npm install` |
 
-```bash
-herdr pane run <root_pane_id> "<command>"
-herdr pane wait-output <root_pane_id> <wait-for> --timeout 180000
-```
-Run it on a reopen too: `.venv` and `node_modules` are per worktree. A timeout: read the pane (`herdr pane read <root_pane_id> --source recent-unwrapped --lines 20`) before you call it failed. Skip when `install_deps: no`.
+No lockfile at the root: the repo has packages in subfolders. Install in each folder one level down that has one (`find "$worktree_path" -maxdepth 2 -name package-lock.json -not -path '*/node_modules/*'`, and the same for the others).
 
-### 5. Go back to `dev` and start Claude Code
+Then check that the install changed no tracked file: `git -C "$worktree_path" status --short`. A changed lockfile: `git -C "$worktree_path" checkout -- <file>`, so the build starts clean.
 
-```bash
-herdr pane run <root_pane_id> 'cd ~/dev'
-```
-Leave `~/dev` unquoted so the shell expands it. It works in PowerShell, Git Bash and zsh panes.
+Run it on a reopen too: `.venv` and `node_modules` are per worktree. Skip it when `install_deps: no`.
 
-Agent names must match `[a-z][a-z0-9_-]{0,31}`. So use the lowercase Linear id (`cpe-1619`), or the branch cut to 32 characters. Not the label.
+### 5. Open the space and start Claude Code
 
-```bash
-herdr agent start "<agent_name>" --kind claude --pane <root_pane_id> -- --model <model>
-```
-Everything after `--` goes to Claude Code itself. Check the pane's status line shows the right model (`herdr pane read <root_pane_id> --lines 20`). Wrong model: tell the user.
-`agent_not_ready` (for example a trust prompt): read the pane and tell the user. Never answer a dialog yourself.
-
-### 6. Send the prompt and check it
-
-Make a nonce of 6 hex characters. Send this, with the caller's prompt at the end:
+Make a nonce of 6 hex characters. The task is this text, with the caller's prompt at the end:
 
 > `verify-<nonce>` **First, run `cd "<worktree_path>" && pwd`. Then reply with one line: `cwd-confirmed: <the path pwd printed>`.** After that, run every git, file and shell command inside `<worktree_path>`. If the path is not `<worktree_path>`, stop and report it. Do not use another folder.
 >
 > Then: `<starting_prompt>`
 
+Pass the arguments as one JSON object, built with a JSON tool, so quotes and newlines in the prompt cannot break it:
+
 ```bash
-herdr agent prompt <root_pane_id> "<prompt above>" --wait --timeout 120000
+herdr-app do space.new "$(python3 -c 'import json,sys; print(json.dumps({"name": sys.argv[1], "folder": sys.argv[2], "tab": "agent", "argv": ["claude", "--model", sys.argv[3]], "task": sys.argv[4]}))' "<label>" "$repo_root" "<model>" "$task")"
 ```
 
-The line must be in the reply text. Claude Code runs each shell command in its own process, so herdr's cwd fields never change and cannot prove the `cd`.
+- `folder` is the main checkout (rule 1), not the worktree.
+- The reply is `{ "space": ..., "tab": ..., "terminal": "t5" }`. Read the ids from it. Do not predict them. `{ "error": ... }`: tell the user exactly what it said and stop.
+- Reopen with a live space (step 1): send the task with `hc send <terminal> "<task>"` instead.
 
-`agent_prompt_stalled`, `timeout` or `blocked`: do not send again. Check first. Send once more only if the nonce is missing. `blocked`: read the pane and ask the user.
+### 6. Check the prompt landed
 
-Check, every run:
 ```bash
-herdr pane read <root_pane_id> --source recent-unwrapped --lines 80
+hc wait <terminal> --timeout 120
 ```
+
+`hc wait` returns when the session stops working. A `timeout` reason is a check-in, not a failure: read the screen, and wait again if it is still busy. Status `blocked` (a trust or permission dialog): read the screen, tell the user, stop.
+
+The screen wraps long lines, so join the text before you search it:
+
+```bash
+hc read <terminal> --lines 200 | tr -d '\n ' | grep -oE "verify-<nonce>|cwd-confirmed:<worktree_path without spaces>" | sort -u
+```
+
 Both must be there:
-1. `cwd-confirmed: <worktree_path>`. Git Bash may print `/c/Users/...` for `C:/Users/...`. That counts as the same. Nothing looser.
+1. `cwd-confirmed: <worktree_path>`.
 2. `verify-<nonce>`.
 
-One is missing: stop. Do not report success. Say what is missing. The user can open the pane and paste the prompt. Never retry in a loop.
+One is missing: stop. Do not report success. Say what is missing. The user can open the space and paste the prompt. Never send the task a second time without reading the screen first: it may have arrived.
+
+Check the model too: the status line at the bottom of `hc read <terminal> --lines 0` shows it. A wrong model: tell the user.
 
 ### 7. Give back focus and report
 
-`<original_workspace_id>` no longer focused? Run `herdr workspace focus <original_workspace_id>`. Then return the outputs.
+`herdr-app status` shows another `space` than `<original_space_id>`? Run `herdr-app do space.select --id <original_space_id>`. Then return the outputs.

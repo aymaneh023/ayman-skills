@@ -19,7 +19,7 @@ Run this in a main session (the pane `factory-create` made). Not in a subagent: 
 ## Before you start
 
 - Read the triage label names from the repo's `docs/agents/`. Below, `ready-for-agent` means the repo's name for that label. A ticket counts as ready when it has the label, or when its description has a `**Label:** ready-for-agent` line.
-- The brief is in the ticket description or in the `triage` comment. Read both.
+- The brief is in the ticket description or in the `triage` comment. Read both, for every ticket: call `mcp__linear__list_comments` on each one, even when the description already looks like a brief. `triage` writes its brief, with `Level:` and `Tool:` at the end, as a comment.
 - Read the repo's lint, type and test commands from `AGENTS.md`, `CLAUDE.md` or `docs/agents/`. They win over the defaults under *Check*.
 - Paths have spaces. Quote every path.
 
@@ -42,7 +42,8 @@ Always pass an explicit `model` to every agent you start. Never let it take this
 | `standard` (default) | `sonnet` |
 | `heavy` | `opus` |
 
-- No Level, or unsure: `sonnet`.
+- Where the Level comes from: the last `Level:` line in the `triage` comment (headed `## Agent Brief`). No such comment: the description. Both have one: the comment wins, because triage wrote it later. Save `level_source` (`comment` or `description`) in the state file next to `level`.
+- No Level in either place: `sonnet`, with `level_source: none`. Name those tickets in the first progress message, so the user can correct it before they start. Never default silently.
 - Pick once, at the start. Do not change it during the run.
 - A fix for the check can use `haiku` only when it is clearly mechanical (an unused import).
 - Never run two `heavy` tickets at the same time.
@@ -57,7 +58,7 @@ A ticket is ready to start when every ticket in its `blockedBy` (inside this sco
 
 All work happens on `base_branch` in `base_worktree_path`. No pool, no extra worktrees or branches, no merges, no cleanup. Everything else still applies.
 
-1. Get the parent (`mcp__linear__get_issue`), its sub-tickets (`mcp__linear__list_issues` with `parentId`), and each one's relations and brief. Leave out and report sub-tickets that are not `ready-for-agent`. Move the parent to `In Progress`. Never mark the parent `Done`; the PR closes it.
+1. Get the parent (`mcp__linear__get_issue`), its sub-tickets (`mcp__linear__list_issues` with `parentId`), and each one's relations and brief (description and comments, see *The brief*). Leave out and report sub-tickets that are not `ready-for-agent`. Move the parent to `In Progress`. Never mark the parent `Done`; the PR closes it.
 2. Sort by `blockedBy`. When there is a choice, take the lower title number.
 3. For each sub-ticket, one at a time:
    - Check its label again. Changed: park it and everything that waits for it.
@@ -72,7 +73,7 @@ All work happens on `base_branch` in `base_worktree_path`. No pool, no extra wor
 
 ### 1. Make the state file
 
-Get the project (`mcp__linear__get_project`) and its tickets (`mcp__linear__list_issues`). For each: label, relations, brief. Tickets that are not `ready-for-agent`: leave out and report. They do not block the others.
+Get the project (`mcp__linear__get_project`) and its tickets (`mcp__linear__list_issues`). For each: label, relations, and the brief from both the description and the comments (`mcp__linear__list_comments`). Tickets that are not `ready-for-agent`: leave out and report. They do not block the others.
 
 Write the state to `$(git -C "<base_worktree_path>" rev-parse --git-common-dir)/factory/<base_branch>.json`. It is inside `.git`, so it is never committed:
 
@@ -85,6 +86,7 @@ Write the state to `$(git -C "<base_worktree_path>" rev-parse --git-common-dir)/
       "title": "01 - Add data model",
       "blocked_by": [],
       "level": "standard",
+      "level_source": "comment",
       "model": "sonnet",
       "branch": null,
       "worktree_path": null,

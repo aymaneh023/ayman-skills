@@ -1,18 +1,18 @@
 ---
 name: factory-create
-description: Start the build of one Linear project, or one parent ticket with sub-tickets, whose tickets are ready for an agent. Makes a worktree and herdr pane (via spin-up-worktree), starts a fresh Claude Code session there, and tells it to run factory-start. Then this session is done. Use after define-work, or when the user says "start the factory", "factory-create <project or ticket>", or wants a planned project or ticket built by agents. It does not plan, triage or build anything itself. One project or ticket per run.
+description: Start the build of one Linear project, or one parent ticket with sub-tickets, whose tickets are ready for an agent. Makes a worktree and a space in the Herdr app (via spin-up-worktree), starts a fresh Claude Code session there, and tells it to run factory-start. Then this session is done. Use after define-work, or when the user says "start the factory", "factory-create <project or ticket>", or wants a planned project or ticket built by agents. It does not plan, triage or build anything itself. One project or ticket per run.
 ---
 
 # Create factory
 
-Take a project or ticket that `define-work` made ready, and start the build. This skill only does the Linear part: find the tickets, check they are ready, write the starting prompt. `spin-up-worktree` does the worktree, pane and session. `factory-start` does the build, inside the new pane.
+Take a project or ticket that `define-work` made ready, and start the build. This skill only does the Linear part: find the tickets, check they are ready, write the starting prompt. `spin-up-worktree` does the worktree, the app space and the session. `factory-start` does the build, inside that session.
 
 ```
 /factory-create <linear-project-url>   # project mode
 /factory-create <ticket-id-or-url>     # ticket mode, e.g. CPE-1613
 ```
 
-Run it from inside the repo (a folder under `~/dev`), in a herdr pane. Not in the repo: ask which one.
+Run it from inside the repo, with the Herdr app open. Not in the repo: ask which one.
 
 ## Labels
 
@@ -71,8 +71,8 @@ It fails (unclear branch, check failed): tell the user exactly what it said. Do 
 
 ### 5. Report and stop
 
-Tell the user: project or ticket, branch, worktree path, workspace id, pane id, agent name, and that the prompt landed (checked). Then stop. Do not follow the pane's progress from here. The user opens the pane for that.
+Tell the user: project or ticket, branch, worktree path, the space name, the terminal address (e.g. `t5`), and that the prompt landed (checked). Then stop. Do not follow the build from here. The user opens the space in the app for that.
 
-## Why factory-start runs in the pane's own session
+## Why factory-start runs in the space's own session
 
-A Claude Code subagent cannot start its own subagents. `factory-start` starts one agent per ticket. So it must run in the pane's main session, not as a background agent. The pane stays free anyway: the builders run in the background.
+A Claude Code subagent cannot start its own subagents. `factory-start` starts one agent per ticket. So it must run in the space's main session, not as a background agent. The session stays free anyway: the builders run in the background.
