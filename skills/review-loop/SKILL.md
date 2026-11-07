@@ -21,7 +21,7 @@ You never merge, approve, force-push, or push to the base branch. You change onl
 
 ## 2. One round
 
-1. `review-status.sh request <pr>` prints `sha`, `since` and `reviewers`.
+1. `review-status.sh request <pr>` prints `sha`, `since` and `reviewers`. It lists only bots whose request really reached the PR. `reviewers` is empty: no review bot is set up for this repo. Skip the wait, go to section 4, and say "no review bot is set up" in the ping.
 2. `review-status.sh wait <pr> <sha> <since> "<reviewers>"` with `run_in_background`. You are woken when it exits. Exit 3 means a reviewer did not answer in 20 minutes: go on with what is there.
 3. `review-status.sh threads <pr>` prints every open bot thread and bot review summary as JSON lines.
 4. **Gate first.** Read the review summary and the threads, and decide: good enough to go forward? Say the verdict in one line before you change anything.

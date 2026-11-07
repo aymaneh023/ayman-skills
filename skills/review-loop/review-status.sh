@@ -38,11 +38,19 @@ case "$cmd" in
     pr="$1"
     sha="$(gh pr view "$pr" --json headRefOid -q .headRefOid)"
     since="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-    reviewers="copilot"
+    reviewers=""
     # Copilot often reviews a new push by itself; ask only when it has not reviewed this commit yet.
-    [ "$(reviews_on "$pr" copilot "$sha")" -gt 0 ] || gh pr edit "$pr" --add-reviewer @copilot >/dev/null
+    # The request fails silently when Copilot review is not set up for the repo, so keep Copilot
+    # only when the request shows up on the PR (or it already reviewed this commit).
+    if [ "$(reviews_on "$pr" copilot "$sha")" -gt 0 ]; then
+      reviewers="copilot"
+    else
+      gh pr edit "$pr" --add-reviewer @copilot >/dev/null 2>&1 || true
+      gh pr view "$pr" --json reviewRequests -q '.reviewRequests[] | (.login // .name // .slug // "")' \
+        | grep -qi copilot && reviewers="copilot"
+    fi
     if [ -n "$(codex_login)" ]; then
-      reviewers="copilot codex"
+      reviewers="${reviewers:+$reviewers }codex"
       [ "$(reviews_on "$pr" codex "$sha")" -gt 0 ] || gh pr comment "$pr" --body "@codex review" >/dev/null
     fi
     echo "sha=$sha since=$since reviewers=\"$reviewers\""

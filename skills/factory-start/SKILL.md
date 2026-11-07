@@ -22,6 +22,11 @@ Run this in a main session (the pane `factory-create` made). Not in a subagent: 
 - The brief is in the ticket description or in the `triage` comment. Read both, for every ticket: call `mcp__linear__list_comments` on each one, even when the description already looks like a brief. `triage` writes its brief, with `Level:` and `Tool:` at the end, as a comment.
 - Read the repo's lint, type and test commands from `AGENTS.md`, `CLAUDE.md` or `docs/agents/`. They win over the defaults under *Check*.
 - Paths have spaces. Quote every path.
+- Check the code review can run, before any builder starts. A review that fails only at the end of a ticket parks work that was already built.
+  1. Docker answers: `docker info`. It doesn't and the machine has OrbStack (`orb status` says Stopped): run `orb start` and check again.
+  2. The review server can read the worktree: `docker inspect multi-code-review-review-mcp --format '{{range .Mounts}}{{.Source}} {{end}}'` lists a folder that contains `base_worktree_path`.
+
+  Either fails: stop, and tell the user exactly which, with the fix (`orb start`, or widen `MCR_ROOT` in the review server's `.env` and run `docker compose up -d` there). No review server container at all: say so once, and go on under the exit 2 rule in *Check*.
 
 ## The brief
 
@@ -64,6 +69,7 @@ All work happens on `base_branch` in `base_worktree_path`. No pool, no extra wor
    - Check its label again. Changed: park it and everything that waits for it.
    - `start=$(git -C "<base_worktree_path>" rev-parse HEAD)`. Move it to `In Progress`.
    - Start one builder (*Builder prompt*), in `base_worktree_path`. Wait for it. Never two at once: they share the folder.
+   - Save its report to its report file, as step 4 of project mode says.
    - Check it (*Check*). Touched files: `git -C "<base_worktree_path>" diff --name-only --diff-filter=ACMR $start..HEAD`. Fails: `SendMessage` the same builder to fix exactly those errors. Check again. Never go on while it fails.
    - Post its Build notes (*Build notes*). Move it to `Done`.
 4. Final check (step 6 of project mode).
@@ -121,6 +127,8 @@ For each ready ticket, up to the free slots, with `<id>` = its lowercase Linear 
 Wait for the next notification. Do not poll. Handle one at a time, in the order they come. That keeps merges one at a time.
 
 ### 4. Check, then merge
+
+First save the builder's report, word for word, to `<state folder>/<base_branch>/<ID>-report.md` (the state folder is where the state file lives, inside `.git`). Save `report_path` in the state file. Until the Build notes are posted, this file is the only copy of the builder's Decisions that survives a crash, a `/clear` or a moved session. A resumed run reads it from there. After a fix round, add the new report below the old one.
 
 Check the ticket in its own worktree (*Check*). Touched files: `git -C "$sub_path" diff --name-only --diff-filter=ACMR "<base_branch>...HEAD"`.
 
@@ -204,7 +212,7 @@ And always: run the brief's Done check yourself. Do not trust the builder's repo
 ## Build notes
 
 When a ticket passes its check (before you move it to `Done`), post one Linear comment on it (`mcp__linear__save_comment`), headed `## Build notes`:
-- The builder's **Decisions**, as reported.
+- The builder's **Decisions**, from its report file (`report_path`). The file is missing: say so in the comment, never rebuild the Decisions from memory.
 - What you saw yourself: touched files the brief did not point to, and anything the diff shows that the builder did not mention. Add it as a **Beyond scope** entry or a **Left out** entry.
 - Fixes after a failed check, and how you resolved any merge conflict (what each side wanted, what was kept).
 - The "For the user" steps with exact commands.
