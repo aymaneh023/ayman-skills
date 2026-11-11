@@ -14,6 +14,8 @@ Take a project or ticket that `define-work` made ready, and start the build. Thi
 
 Run it from inside the repo, with the Herdr app open. Not in the repo: ask which one.
 
+This session may run outside the Herdr app (another Claude Code window, an IDE). That is fine, but every `herdr-app` and `hc` call must go to the user's own window and core, never to whatever the environment points at. `spin-up-worktree` says how (*Always talk to the user's own window*); follow it for every call here too, including any check you make yourself.
+
 ## Labels
 
 Read the triage label names from the repo's `docs/agents/` (written by `/setup-matt-pocock-skills`). Below, `ready-for-agent` means the repo's name for that label. A ticket counts as ready when it has the label, or when its description has a `**Label:** ready-for-agent` line (some repos put it there). No `docs/agents/`: tell the user to run that setup first, or use the default names if they say so.
@@ -71,7 +73,7 @@ It fails (unclear branch, check failed): tell the user exactly what it said. Do 
 
 ### 5. Report and stop
 
-Tell the user: project or ticket, branch, worktree path, the space name, the terminal address (e.g. `t5`), and that the prompt landed (checked). Then stop. Do not follow the build from here. The user opens the space in the app for that.
+Tell the user: project or ticket, branch, worktree path, the space name, the terminal address (e.g. `t5`), that the prompt landed (checked), and that the space is in their window (`ha ls` lists it). Then stop. Do not follow the build from here. The user opens the space in the app for that.
 
 ## Why factory-start runs in the space's own session
 

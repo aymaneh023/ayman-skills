@@ -22,6 +22,19 @@ The Herdr app (macOS) has two command-line tools. Use only these two:
 
 Never use the old `herdr` command (`/opt/homebrew/bin/herdr`). It talks to an old background server that the app does not show, so a session started with it is invisible to the user.
 
+## Always talk to the user's own window
+
+`herdr-app` finds its window through `HERDR_APP_HOME` (default `~/.config/herdr-app`, socket `herdr-app.sock`), and `hc` finds its core through `HC_SESSION` and `HC_TERMINAL_SOCKET`. A session that did not start inside the Herdr app (another Claude Code window, an IDE, a background agent) can carry other values, or values from an old session. Then the space opens in a window the user does not see, or the check reads another core.
+
+So never call `herdr-app` or `hc` bare. Start every Bash block that uses them with these two functions, and use `ha` and `hcx` in their place:
+
+```bash
+ha()  { env -u HC_SESSION -u HC_TERMINAL_SOCKET HERDR_APP_HOME="$HOME/.config/herdr-app" herdr-app "$@"; }
+hcx() { env -u HC_SESSION -u HC_TERMINAL_SOCKET hc "$@"; }
+```
+
+The commands below and in REFERENCE.md are written as `herdr-app` and `hc`; run them as `ha` and `hcx`. `herdr-app: no Herdr window at …` means the app is not open: stop and say so.
+
 ## Run it in the background
 
 When the user runs this skill directly, do not do the steps in this session. Hand them to a background agent, so the user can keep working here:
@@ -35,7 +48,8 @@ When `factory-create` calls this skill, do the steps in place. That session has 
 
 ## Before you start
 
-- The Herdr app must be running: `herdr-app status` prints JSON with a `space`. It fails: say "the Herdr app is not open" and stop. Do not open it yourself (bare `herdr-app` opens the window).
+- The Herdr app must be running: `ha status` prints JSON with a `space`. It fails: say "the Herdr app is not open" and stop. Do not open it yourself (bare `herdr-app` opens the window).
+- The window and the core must be the same pair: every terminal that `ha ls` shows must also be in `hcx ls`. One is missing: the window and the core do not match. Stop and tell the user what each one showed.
 - Run git from inside the target repo. Not clear which repo: ask.
 - Paths can have spaces (`Company profile agents`). Quote every path.
 - When unsure about a command, run `hc <command> --help`, `herdr-app commands`, or `hc --skill` / `herdr-app --skill`. See [REFERENCE.md](REFERENCE.md).
@@ -80,16 +94,18 @@ Return `space_id`, `tab_id`, `terminal` (the hc address, e.g. `t5`), `worktree_p
 
 ### 0. Note the user's focus
 
+Every Bash block from here on starts with the `ha` and `hcx` functions (*Always talk to the user's own window*).
+
 ```bash
-herdr-app status
+ha status
 ```
 Note `space` as `<original_space_id>`.
 
 ### 1. Is there a live session for this branch?
 
 ```bash
-herdr-app ls
-hc ls
+ha ls
+hcx ls
 ```
 A space named `<label>` with a live `claude-code` terminal:
 - One → it is already running. Ask before you send it anything. To give it the prompt, go to step 6 with that terminal's address.
@@ -143,25 +159,25 @@ Make a nonce of 6 hex characters. The task is this text, with the caller's promp
 Pass the arguments as one JSON object, built with a JSON tool, so quotes and newlines in the prompt cannot break it:
 
 ```bash
-herdr-app do space.new "$(python3 -c 'import json,sys; print(json.dumps({"name": sys.argv[1], "folder": sys.argv[2], "tab": "agent", "argv": ["claude", "--model", sys.argv[3]], "task": sys.argv[4]}))' "<label>" "$repo_root" "<model>" "$task")"
+ha do space.new "$(python3 -c 'import json,sys; print(json.dumps({"name": sys.argv[1], "folder": sys.argv[2], "tab": "agent", "argv": ["claude", "--model", sys.argv[3]], "task": sys.argv[4]}))' "<label>" "$repo_root" "<model>" "$task")"
 ```
 
 - `folder` is the main checkout (rule 1), not the worktree.
 - The reply is `{ "space": ..., "tab": ..., "terminal": "t5" }`. Read the ids from it. Do not predict them. `{ "error": ... }`: tell the user exactly what it said and stop.
-- Reopen with a live space (step 1): send the task with `hc send <terminal> "<task>"` instead.
+- Reopen with a live space (step 1): send the task with `hcx send <terminal> "<task>"` instead.
 
 ### 6. Check the prompt landed
 
 ```bash
-hc wait <terminal> --timeout 120
+hcx wait <terminal> --timeout 120
 ```
 
-`hc wait` returns when the session stops working. A `timeout` reason is a check-in, not a failure: read the screen, and wait again if it is still busy. Status `blocked` (a trust or permission dialog): read the screen, tell the user, stop.
+`hcx wait` returns when the session stops working. A `timeout` reason is a check-in, not a failure: read the screen, and wait again if it is still busy. Status `blocked` (a trust or permission dialog): read the screen, tell the user, stop.
 
 The screen wraps long lines, so join the text before you search it:
 
 ```bash
-hc read <terminal> --lines 200 | tr -d '\n ' | grep -oE "verify-<nonce>|cwd-confirmed:<worktree_path without spaces>" | sort -u
+hcx read <terminal> --lines 200 | tr -d '\n ' | grep -oE "verify-<nonce>|cwd-confirmed:<worktree_path without spaces>" | sort -u
 ```
 
 Both must be there:
@@ -170,8 +186,10 @@ Both must be there:
 
 One is missing: stop. Do not report success. Say what is missing. The user can open the space and paste the prompt. Never send the task a second time without reading the screen first: it may have arrived.
 
-Check the model too: the status line at the bottom of `hc read <terminal> --lines 0` shows it. A wrong model: tell the user.
+Check the model too: the status line at the bottom of `hcx read <terminal> --lines 0` shows it. A wrong model: tell the user.
+
+Then check the space is in the user's window: `ha ls` must list a space with the id from step 5, named `<label>`, with terminal `<terminal>` in it. Not there: the space opened in another window. Stop and say so; do not open a second one.
 
 ### 7. Give back focus and report
 
-`herdr-app status` shows another `space` than `<original_space_id>`? Run `herdr-app do space.select --id <original_space_id>`. Then return the outputs.
+`ha status` shows another `space` than `<original_space_id>`? Run `ha do space.select --id <original_space_id>`. Then return the outputs.
