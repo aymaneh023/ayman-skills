@@ -35,6 +35,8 @@ A project gets parallel branches. A parent ticket gets **one branch and one work
 
 Project mode: `mcp__linear__get_project` for name, id and URL. Slug: the name in kebab-case, max ~60 characters.
 
+The URL gives no project (a pasted link often loses its last character): search by name with `mcp__linear__list_projects`, `query` = the start of the URL slug (`p5-content-pipeline-4719b…` → `P5`). One match whose URL starts with the pasted one: use it, and tell the user the link was cut short. Several or none: ask.
+
 Ticket mode: `mcp__linear__get_issue` for id, title, URL and description. Slug: `<identifier>-<title in kebab-case>`, lowercase, max ~60 characters. Note a base branch if the description names one.
 
 ### 2. Check every ticket is ready

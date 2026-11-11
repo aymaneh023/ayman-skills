@@ -134,15 +134,16 @@ Existing branch without a folder: `git -C "$repo_root" worktree add "$worktree_p
 
 ### 4. Install dependencies
 
-Run it in the worktree, from this session. Look for lockfiles at the root first:
+Run it in the worktree, from this session, in every folder that has a lockfile: the root and each package folder (`find "$worktree_path" -maxdepth 3 \( -name package-lock.json -o -name pnpm-lock.yaml -o -name uv.lock \) -not -path '*/node_modules/*'`). A repo can have both: a root package for repo-wide tools (a linter the code review reads from the root) and its own packages below it. Per folder:
 
 | File | Command |
 |---|---|
-| `uv.lock` or `pyproject.toml` | `uv sync` |
-| `pnpm-lock.yaml` | `pnpm install` |
-| `package-lock.json` | `npm install` |
+| `uv.lock` | `uv sync --frozen` |
+| `pyproject.toml` without `uv.lock` | `uv sync` |
+| `pnpm-lock.yaml` | `pnpm install --frozen-lockfile` |
+| `package-lock.json` | `npm ci` |
 
-No lockfile at the root: the repo has packages in subfolders. Install in each folder one level down that has one (`find "$worktree_path" -maxdepth 2 -name package-lock.json -not -path '*/node_modules/*'`, and the same for the others).
+These install exactly what the lockfile says and leave it untouched. One fails because the lockfile is out of date: run the plain install (`uv sync`, `pnpm install`, `npm install`) in that folder instead, and name the folder in the output.
 
 Then check that the install changed no tracked file: `git -C "$worktree_path" status --short`. A changed lockfile: `git -C "$worktree_path" checkout -- <file>`, so the build starts clean.
 
@@ -152,7 +153,7 @@ Run it on a reopen too: `.venv` and `node_modules` are per worktree. Skip it whe
 
 Make a nonce of 6 hex characters. The task is this text, with the caller's prompt at the end:
 
-> `verify-<nonce>` **First, run `cd "<worktree_path>" && pwd`. Then reply with one line: `cwd-confirmed: <the path pwd printed>`.** After that, run every git, file and shell command inside `<worktree_path>`. If the path is not `<worktree_path>`, stop and report it. Do not use another folder.
+> **First, run `cd "<worktree_path>" && pwd`. Then reply with one line: `cwd-confirmed <nonce>: <the path pwd printed>`.** After that, run every git, file and shell command inside `<worktree_path>`. If the path is not `<worktree_path>`, stop and report it. Do not use another folder.
 >
 > Then: `<starting_prompt>`
 
@@ -174,17 +175,15 @@ hcx wait <terminal> --timeout 120
 
 `hcx wait` returns when the session stops working. A `timeout` reason is a check-in, not a failure: read the screen, and wait again if it is still busy. Status `blocked` (a trust or permission dialog): read the screen, tell the user, stop.
 
-The screen wraps long lines, so join the text before you search it:
+Look for the session's own reply, not the prompt: a long prompt scrolls off the top of the screen, the reply sits below it. The screen wraps long lines, so join the text before you search it:
 
 ```bash
-hcx read <terminal> --lines 200 | tr -d '\n ' | grep -oE "verify-<nonce>|cwd-confirmed:<worktree_path without spaces>" | sort -u
+hcx read <terminal> --lines 2000 | tr -d '\n ' | grep -oE "cwd-confirmed<nonce>:<worktree_path without spaces>"
 ```
 
-Both must be there:
-1. `cwd-confirmed: <worktree_path>`.
-2. `verify-<nonce>`.
+It must print one match. The nonce proves the session read this task; the path proves it is in the worktree. (The prompt itself holds `<the path pwd printed>` in that place, so it never matches.)
 
-One is missing: stop. Do not report success. Say what is missing. The user can open the space and paste the prompt. Never send the task a second time without reading the screen first: it may have arrived.
+No match: stop. Do not report success. Say what is missing. The user can open the space and paste the prompt. Never send the task a second time without reading the screen first: it may have arrived.
 
 Check the model too: the status line at the bottom of `hcx read <terminal> --lines 0` shows it. A wrong model: tell the user.
 

@@ -117,7 +117,7 @@ For each ready ticket, up to the free slots, with `<id>` = its lowercase Linear 
   sub_path="<base_worktree_path>-<id>"
   git -C "<base_worktree_path>" worktree add -b "<base_branch>-<id>" "$sub_path" "<base_branch>"
   ```
-  Install dependencies there if tests need them (`uv sync`, `pnpm install`), as `spin-up-worktree` step 4 picks.
+  Install dependencies there if tests need them, with the commands `spin-up-worktree` step 4 picks.
 - Move it to `In Progress` in Linear. Leave the label alone.
 - Start a background builder: Agent tool, `subagent_type: general-purpose`, `model` from the Level, `description: build <ID>`, with the *Builder prompt* for `$sub_path`.
 - Save `branch`, `worktree_path`, `agent_id`, `model`, `state: running`.
@@ -165,7 +165,7 @@ The builder is alone. It cannot ask anything. Give it all of this:
 
 > You build Linear ticket `<ID>` (`<title>`) alone, in the worktree `<worktree path>` on branch `<branch>`. First run `git -C "<worktree path>" branch --show-current`. It must print `<branch>`; if not, stop and report. Run every git, file and shell command inside that worktree. Run each git command as its own call with `git -C "<worktree path>"`, never as `cd ... && git ...`: the permission check refuses the combined form. Never touch another worktree or branch.
 >
-> Use the `tdd` skill, against the test seams in the brief. Commit on `<branch>` in small commits that start with `<ID>:`. Do not push, open a PR or change Linear. Do not run what is under "For the user" (paid calls, evals, deploys). Only prepare it.
+> Use the `tdd` skill, against the test seams in the brief. Commit on `<branch>` in small commits that start with `<ID>:`. Commit each test while it is red, before the code that turns it green: the check reads the commit order. Do not push, open a PR or change Linear. Do not run what is under "For the user" (paid calls, evals, deploys). Only prepare it.
 >
 > You are done when the brief's Done check passes. Report: the files you changed, the Done check output, the "For the user" steps with exact commands, and **Decisions**.
 >
@@ -193,7 +193,7 @@ Only the files the ticket touched. A full-project type check counts only errors 
 | Python (`pyproject.toml`) | `uv run ruff check <files>` and `uv run ruff format --check <files>` | `uv run mypy <files>` or `uv run pyright <files>` if set up, else skip |
 | JS/TS (`pnpm-lock.yaml`) | `pnpm eslint <files>` | `pnpm typecheck` |
 
-Then the deterministic review (Per Hassle's multi-code-review: offline analyzers, seconds, no tokens). It reviews the diff of the worktree against the branch it came from:
+Then the deterministic review (Per Hassle's multi-code-review: offline analyzers, seconds, no tokens). It reviews the diff of the worktree against the branch it came from. It runs the repo's own eslint from the root's `node_modules`, and reads `lcov.info` files for coverage, so first run the repo's coverage command in every package the ticket touched (the repo's docs name it). A review that notes "eslint skipped" or no coverage report read: say so in the Build notes.
 
 ```bash
 node ~/dev/vendor/phassle-multi-code-review/scripts/mcr.mjs review "<worktree path>" --base "<base_branch>"
@@ -206,6 +206,8 @@ On Windows, put `NODE_OPTIONS="--import=file:///C:/Users/AymanElHattache/.claude
 - Exit 2: read stderr. Only `mcr: the gateway does not answer` means Docker is off: go on without the review and say so in the Report. Any other exit 2 is a broken review, not a skipped one: set the ticket to `parked` (not `Done` in Linear), and give the exact stderr with the parked tickets in the Report. A ticket is never `done` without a review that ran or a gateway that was off.
 
 For the whole-branch check, use `--base main` on `base_worktree_path`.
+
+Then **test first**: every code change must have a test seen red before it. Read the ticket's commits oldest first (`git -C "<worktree path>" log --reverse --name-only <start>..HEAD`, where `<start>` is `<base_branch>` in project mode and the saved `start` in ticket mode). Each commit that changes a source file must change a test file itself, or come after a commit that does. A source commit with no test before it: `SendMessage` the builder to prove those tests red. In a temporary worktree at the commit before that code, copy in the new test files, run them, and report the output. They must fail for the reason the test names. A test that passes without the code tests nothing: the builder fixes the test. The proof goes in the Build notes. No red proof: the check fails.
 
 And always: run the brief's Done check yourself. Do not trust the builder's report. Never lint the whole repo as the check. Never run paid checks.
 
@@ -228,4 +230,15 @@ End with:
 - Parked or stuck tickets and why, and tickets with another Tool.
 - Next: "Say yes and I push it, open a PR into `main`, and get it through the Copilot and Codex reviews. I ping you when it is ready for you."
 
-Never push or open a PR without the user's yes. On a yes, write the PR with the `pr-message` skill (load it with the Skill tool). It reads the Build notes comments for its Risk, Gaps and Scope sections.
+Never push or open a PR without the user's yes. On a yes, write the PR with the `pr-message` skill (load it with the Skill tool), then run `review-loop`. `pr-message` reads the Build notes comments for its Risk, Gaps and Scope sections.
+
+## After the merge
+
+The user says the PR is merged: close the run out, in this order. Check first with `gh pr view <pr> --json state,mergedAt`: anything but `MERGED` → say so and stop.
+
+1. **Threads.** The merge accepts the risks. Resolve every open thread from `review-loop`: `review-status.sh threads <pr>`, then `review-status.sh resolve <thread-id> <file>` with a one-line reply: "Accepted at merge, see Risk in the PR body." Ask items still open: list them, leave them open.
+2. **Main.** In the repo's main checkout (`git rev-parse --path-format=absolute --git-common-dir` without `/.git`): `git fetch origin --prune`, then `git merge --ff-only origin/main` when it is on `main` with a clean tree. Otherwise say why you skipped it.
+3. **Worktree and branch.** From the main checkout: `git worktree remove "<base_worktree_path>"`, then `git branch -d <base_branch>`. `-d` needs the branch in `main`, so update `main` first. Never `-D` or `--force`. One refuses: leave it and report it. Delete the state file and its report folder.
+4. **Linear.** Every `done` ticket is `Done`. Ticket mode: the parent too (the PR should have closed it).
+5. **Report** in one short list: what you resolved, removed and updated, and what you left and why.
+6. **Space.** Last, because it ends this session: close this session's Herdr space. Use the `ha` function from `spin-up-worktree` (*Always talk to the user's own window*). In `ha ls`, find the space whose name starts with a ticket id of this run (`factory-create` names it `<ID> <Short Title>`). Not exactly one: list them and leave the space to the user. One: run `ha do space.close '{"id":"<space id>","confirmed":true}'`.

@@ -63,4 +63,4 @@ Post the body without waiting for a yes: the user asked for it by starting the f
 
 ## 5. Hand over
 
-Send a push notification (PushNotification tool): `PR #<n> ready for your review: <accepted> risks accepted, <ask> need you.` End your turn with the PR link, the accepted risks and the Ask items, one line each.
+Send a push notification (PushNotification tool): `PR #<n> ready for your review: <accepted> risks accepted, <ask> need you.` End your turn with the PR link, the accepted risks and the Ask items, one line each. In a `factory-start` session, add: "Tell me when it is merged and I close it all out." (`factory-start`, *After the merge*).
