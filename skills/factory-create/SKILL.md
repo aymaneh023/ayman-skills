@@ -1,6 +1,6 @@
 ---
 name: factory-create
-description: Start the build of one Linear project, or one parent ticket with sub-tickets, whose tickets are ready for an agent. Makes a worktree and a space in the Herdr app (via spin-up-worktree), starts a fresh Claude Code session there, and tells it to run factory-start. Then this session is done. Use after define-work, or when the user says "start the factory", "factory-create <project or ticket>", or wants a planned project or ticket built by agents. It does not plan, triage or build anything itself. One project or ticket per run.
+description: Start the build of one Linear project, or one parent ticket with sub-tickets, whose tickets are ready for an agent. Makes a worktree and a space in the Herdr app (via spin-up-worktree), starts a fresh Claude Code session there, tells it to run factory-start, then watches that session and checks each result. Use after define-work, or when the user says "start the factory", "factory-create <project or ticket>", or wants a planned project or ticket built by agents. It does not plan, triage or build anything itself. One project or ticket per run.
 ---
 
 # Create factory
@@ -73,9 +73,19 @@ With:
 
 It fails (unclear branch, check failed): tell the user exactly what it said. Do not retry.
 
-### 5. Report and stop
+### 5. Report, then watch
 
-Tell the user: project or ticket, branch, worktree path, the space name, the terminal address (e.g. `t5`), that the prompt landed (checked), and that the space is in their window (`ha ls` lists it). Then stop. Do not follow the build from here. The user opens the space in the app for that.
+Tell the user: project or ticket, branch, worktree path, the space name, the terminal address (e.g. `t5`), that the prompt landed (checked), and that the space is in their window (`ha ls` lists it).
+
+Then watch the session until the build ends. The build session reports only on its own screen, so nobody hears it stop unless this session watches.
+
+1. Start a background shell (`run_in_background`) that runs `hcx wait <terminal> --timeout 600` in a loop, goes on while the reason is `timeout` and the status is `working`, and exits on any other result. Use `hc wait` only, never a hand-written poll loop: `hc wait` ends when the terminal is gone, a poll loop does not.
+2. When it wakes this session, read the screen (`hcx read <terminal> --lines 60`).
+   - `blocked` (a permission or trust dialog): tell the user what the command is and whether it looks safe. Never answer the dialog yourself.
+   - A question for the user, or a report: check the branch yourself (commits, `git status`, the Done check, the tests of every package it touched) before you relay anything. Say where your result differs from the session's report.
+3. Relay the user's answers with `hcx send <terminal>`, and start the next watch.
+
+The watch ends when the user closes the space or the work is closed out. Stop every background shell you started before you finish.
 
 ## Why factory-start runs in the space's own session
 

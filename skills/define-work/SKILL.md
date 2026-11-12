@@ -28,7 +28,7 @@ This runs in the session that calls it. It makes no worktree and writes no code.
 
 Find out where the project is now (existing spec? existing tickets? labels?), tell the user, and start at that stage.
 
-1. **Grill.** `grill-with-docs` only loads two other skills, so load those two with the Skill tool (see *Before you start*; do not only read the files), and follow them fully: rounds of at most four numbered questions through `AskUserQuestion`, a recommended answer first, wait for the answers, update the glossary and ADRs as you go. Go on until the frontier is empty and the user confirms. **Pause:** "Grill done. Go on to spec and scenarios?"
+1. **Grill.** `grill-with-docs` only loads two other skills, so load those two with the Skill tool (see *Before you start*; do not only read the files), and follow them fully: rounds of at most four numbered questions through `AskUserQuestion`, a recommended answer first, wait for the answers, update the glossary and ADRs as you go. Go on until the frontier is empty and the user confirms. Before the first round, list every interface the work consumes or produces (a data contract, an API shape, a table shape) and find the ticket or ADR where the user decided it. Each one without such a decision goes into the first round as a question: does it stay as it is? **Pause:** "Grill done. Go on to spec and scenarios?"
 2. **Spec.** Run `to-spec` and publish it to the project in Linear. No pause.
 3. **Scenarios.** Run `spec-to-scenarios` on the spec, with these changes:
    - **Destination** is the spec itself: the Linear document from stage 2 (project mode), or the parent ticket (ticket mode). Save the Gherkin there under `## Scenarios`. Do not ask for another ticket.

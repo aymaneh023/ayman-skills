@@ -209,6 +209,8 @@ For the whole-branch check, use `--base main` on `base_worktree_path`.
 
 Then **test first**: every code change must have a test seen red before it. Read the ticket's commits oldest first (`git -C "<worktree path>" log --reverse --name-only <start>..HEAD`, where `<start>` is `<base_branch>` in project mode and the saved `start` in ticket mode). Each commit that changes a source file must change a test file itself, or come after a commit that does. A source commit with no test before it: `SendMessage` the builder to prove those tests red. In a temporary worktree at the commit before that code, copy in the new test files, run them, and report the output. They must fail for the reason the test names. A test that passes without the code tests nothing: the builder fixes the test. The proof goes in the Build notes. No red proof: the check fails.
 
+Then **standards**: when the repo has a `CODING_STANDARDS.md`, read it and check the ticket's diff against every rule in it. A broken rule fails the check: `SendMessage` the builder to fix it, as for a failed Done check.
+
 And always: run the brief's Done check yourself. Do not trust the builder's report. Never lint the whole repo as the check. Never run paid checks.
 
 ## Build notes
@@ -226,7 +228,7 @@ This comment is the source for the PR's Risk, Gaps and Scope sections, so it mus
 End with:
 - A table: ticket, state (`done` or `parked`), model, merged.
 - The final check result.
-- Every "For the user" step, with exact commands.
+- Every "For the user" step, with exact commands. A paid live check (a call to a real model or a real service) comes first, with its expected cost and what it proves that the tests do not. Offer to run it in this session before the PR, once the user has logged in (`! gcloud auth login` or the repo's equivalent): the PR waits for its result.
 - Parked or stuck tickets and why, and tickets with another Tool.
 - Next: "Say yes and I push it, open a PR into `main`, and get it through the Copilot and Codex reviews. I ping you when it is ready for you."
 

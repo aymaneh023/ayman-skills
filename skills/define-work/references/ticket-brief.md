@@ -4,7 +4,7 @@ The brief is the comment `triage` posts on a `ready-for-agent` ticket. Write it 
 
 ## Extra parts
 
-**Test seams.** Where the agent tests from the outside, agreed with the user now (the agent's `tdd` step needs agreed seams and cannot ask). One line each: what the seam catches.
+**Test seams.** Where the agent tests from the outside, agreed with the user now (the agent's `tdd` step needs agreed seams and cannot ask). One line each: what the seam catches. A seam names what the test feeds in, and follows the repo's `CODING_STANDARDS.md`. For work around a language model, the seam is the step after the model (a draft as plain input), never the conversation with it.
 
 > - `classify_products(company)` returns groups for a retailer. Catches wrong grouping.
 

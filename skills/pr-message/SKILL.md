@@ -195,9 +195,9 @@ did not build when they have nothing in them.
 ### Verdict
 
 `**Merge: yes.**` or `**Merge: not yet.**` and nothing in between. It is **not yet** when a
-check failed, a scenario the spec requires is not covered, a Left out item breaks a scenario, or
-`review-loop` passed an Ask item (an open product or design choice). Then the sentence after it
-names what blocks and who settles it. Ask items are the only questions a PR body carries.
+check failed, a scenario the spec requires is not covered, a Left out item breaks a scenario,
+`review-loop` passed an Ask item (an open product or design choice), or the change calls a model
+or a real service and its live check has not run. Then the sentence after it names what blocks and who settles it. Ask items are the only questions a PR body carries.
 
 ### Status emoji
 
